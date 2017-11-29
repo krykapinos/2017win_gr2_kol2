@@ -17,64 +17,81 @@
 
 #!/usr/bin/env python2
 
-class Student:
-	def __init__(self, name, surname):
-		self.name = name
-		self.surname = surname
-		self.attendance = []
-		self.scores = []
-	def get_name(self):
-		return self.name
-	def get_surname(self):
-		return self.surname
-	def add_attendance(self, attendance):
-		self.attendance.append(attendance)
-	def add_score(self, score):
-		self.scores.append(score)
-	def get_score(self, class_number):
-		return self.scores[class_number]
-	def get_all_scores(self):
-		return self.scores
-	def get_attendance(self,class_number):
-		return self.attendance[class_number]
-
-class Class_group:
-	def __init__(self):
-		self.students = []
-	def add_student(self, name, surname):
-		self.students.append(Student(name, surname))
-	def add_student_attendance(self, name, surname, attendance):
-		for el in self.students:
-			if el.get_name() == name and el.get_surname() == surname:
-				el.add_attendance(attendance)
-	def add_student_score(self, name, surname, score):
-		for el in self.students:
-			if el.get_name() == name and el.get_surname() == surname:
-				el.add_score(score)
-	def get_average_class_score(self, class_number):
-		pass
-	def get_total_average_score(self):
-		number_of_scores = 0
-		sum_of_scores = 0
-		for el in self.students:
-			sum_of_scores += sum(el.get_all_scores())
-			number_of_scores += len(el.get_all_scores())
-		return sum_of_scores/number_of_scores
-	def get_total_attendance(self, class_number):
-		sum_of_attendance = 0
-		
-		#return sum_of_attendance
-	
-
-class_group = Class_group()
-class_group.add_student("John", "Doe")
-class_group.add_student("John", "Smith")
-
-class_group.add_student_attendance("John", "Smith", 1)
-class_group.add_student_score("John", "Smith", 4)
+from optparse import OptionParser
+import json
+import os.path
 
 
+def read_data_from_file(filename):
+    if os.path.isfile(filename):
+	file_dictionary = {}
+        with open(filename, 'r') as file:
+            file_dictionary = json.load(file)
+        return file_dictionary
+    else:
+	return {}
+
+def save_data_to_file(dictionary, filename):
+    with open(filename, 'w') as file:
+        json.dump(dictionary, file)
+
+def add_student(diary, name, surname):
+    diary.setdefault(name+surname, {'Name': name, 'Surname': surname, 'Classes': {}})
+
+def add_student_attendance(diary, name, surname, class_name, attendance):
+    diary[name+surname]['Classes'].setdefault(class_name, {'Attendance': [], 'Score': []} )
+    diary[name+surname]['Classes'][class_name]['Attendance'].append(attendance)
+
+def add_student_score(diary, name, surname, class_name, score):
+    diary[name+surname]['Classes'].setdefault(class_name, {'Attendance': [], 'Score': []} )
+    diary[name+surname]['Classes'][class_name]['Score'].append(score)
+
+def get_student_total_average(diary, name, surname):
+    counter, average = 0., 0.
+    for dict_key in diary[name+surname]['Classes'].keys():
+        counter += len(diary[name+surname]['Classes'][dict_key]['Score'])
+        average += sum(diary[name+surname]['Classes'][dict_key]['Score'])
+    return average/counter
+
+def get_students_average(diary, class_name):
+    counter, average = 0., 0.
+    for dict_key in diary.keys():
+        counter += len(diary[dict_key]['Classes'][class_name]['Score'])
+        average += sum(diary[dict_key]['Classes'][class_name]['Score'])
+    return average/counter
+
+def get_total_attendance(diary, class_name):
+    attendance = 0
+    for dict_key in diary.keys():
+        attendance  += sum(diary[dict_key]['Classes'][class_name]['Attendance'])
+    return attendance
 
 
+if __name__ == "__main__":
 
+    parser = OptionParser()
+    parser.add_option("-f", "--file", dest="filename", default='class_diary.json',
+		 help="Write/read data to/from FILE", metavar="FILE")
+    parser.add_option("-w", "--write", action="store_true", dest="only_write", default=False,
+                 help="Only write to FILE")
 
+    (options, args) = parser.parse_args()
+
+    diary = {}
+    if options.only_write == False:
+        diary = read_data_from_file(options.filename)
+
+    add_student(diary, 'Jan', 'Kowalski')
+    add_student(diary, 'Jan', 'Nowak')
+    add_student_attendance(diary, 'Jan', 'Kowalski', 'class1', 1)
+    add_student_attendance(diary, 'Jan', 'Kowalski', 'class2', 0)
+    add_student_attendance(diary, 'Jan', 'Nowak', 'class1', 1)
+    add_student_score(diary, 'Jan', 'Kowalski', 'class1', 4.)
+    add_student_score(diary, 'Jan', 'Kowalski', 'class1', 4.)
+    add_student_score(diary, 'Jan', 'Kowalski', 'class2', 3.)
+    add_student_score(diary, 'Jan', 'Nowak', 'class1', 5.)
+    print("Jan Kowalski average = {:.2f}".format(get_student_total_average(diary, 'Jan', 'Kowalski')))
+    print("All students average from class1 = {:.2f}".format(get_students_average(diary, 'class1')))
+    print("Students attendance at class1 = {:d}".format(get_total_attendance(diary, 'class1')))
+
+    save_data_to_file(diary, options.filename)
